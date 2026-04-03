@@ -26,7 +26,13 @@ func boolToYesNo(b bool) string {
 }
 
 func getOperatingSystem() string {
-	switch runtime.GOOS {
+	return operatingSystemName(runtime.GOOS)
+}
+
+// operatingSystemName maps a runtime.GOOS value to a human-readable OS name.
+// Kept as a pure function so it can be tested independently of the running platform.
+func operatingSystemName(goos string) string {
+	switch goos {
 	case "darwin":
 		return "MacOS"
 	case "windows":
@@ -34,17 +40,23 @@ func getOperatingSystem() string {
 	case "linux":
 		return "Linux"
 	default:
-		return runtime.GOOS
+		return goos
 	}
 }
 
 func getArchitecture() string {
-	switch runtime.GOARCH {
+	return architectureName(runtime.GOARCH)
+}
+
+// architectureName maps a runtime.GOARCH value to a human-readable architecture name.
+// Kept as a pure function so it can be tested independently of the running platform.
+func architectureName(goarch string) string {
+	switch goarch {
 	case "amd64":
 		return "x64"
 	case "arm64":
 		return "arm64"
 	default:
-		return runtime.GOARCH
+		return goarch
 	}
 }

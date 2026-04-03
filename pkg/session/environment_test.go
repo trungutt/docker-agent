@@ -76,6 +76,39 @@ func TestBoolToYesNo(t *testing.T) {
 	assert.Equal(t, "No", boolToYesNo(false))
 }
 
+func TestOperatingSystemName(t *testing.T) {
+	tests := []struct {
+		goos     string
+		expected string
+	}{
+		{"darwin", "MacOS"},
+		{"windows", "Windows"},
+		{"linux", "Linux"},
+		{"freebsd", "freebsd"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.goos, func(t *testing.T) {
+			assert.Equal(t, tt.expected, operatingSystemName(tt.goos))
+		})
+	}
+}
+
+func TestArchitectureName(t *testing.T) {
+	tests := []struct {
+		goarch   string
+		expected string
+	}{
+		{"amd64", "x64"},
+		{"arm64", "arm64"},
+		{"386", "386"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.goarch, func(t *testing.T) {
+			assert.Equal(t, tt.expected, architectureName(tt.goarch))
+		})
+	}
+}
+
 func TestGetEnvironmentInfoIntegration(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err)
