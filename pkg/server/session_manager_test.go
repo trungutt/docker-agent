@@ -411,6 +411,56 @@ func TestForkSession_CopiesHistoryBeforeUserMessage(t *testing.T) {
 	assert.Equal(t, forked.ID, loaded.ID)
 }
 
+// TestForkSession_TitleIncrementsAcrossSiblings pins the fix for the
+// bug where forking the same parent from different cut points produced
+// several copies of "<parent> (fork 1)". Each fork must pick the next
+// free "(fork N)" suffix among existing siblings.
+func TestForkSession_TitleIncrementsAcrossSiblings(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	store := session.NewInMemorySessionStore()
+	parent := session.New()
+	parent.Title = "Original"
+	parent.Messages = []session.Item{
+		session.NewMessageItem(session.UserMessage("u1")),
+		session.NewMessageItem(session.NewAgentMessage("root", &chat.Message{
+			Role:    chat.MessageRoleAssistant,
+			Content: "a1",
+		})),
+		session.NewMessageItem(session.UserMessage("u2")),
+		session.NewMessageItem(session.NewAgentMessage("root", &chat.Message{
+			Role:    chat.MessageRoleAssistant,
+			Content: "a2",
+		})),
+		session.NewMessageItem(session.UserMessage("u3")),
+	}
+	require.NoError(t, store.AddSession(ctx, parent))
+
+	sm := NewSessionManager(ctx, config.Sources{}, store, 0, &config.RuntimeConfig{})
+
+	// Three forks of the same parent at three different cut points must
+	// pick (fork 1), (fork 2), (fork 3) — not three copies of (fork 1).
+	fork1, err := sm.ForkSession(ctx, parent.ID, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "Original (fork 1)", fork1.Title)
+
+	fork2, err := sm.ForkSession(ctx, parent.ID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "Original (fork 2)", fork2.Title)
+
+	fork3, err := sm.ForkSession(ctx, parent.ID, 2)
+	require.NoError(t, err)
+	assert.Equal(t, "Original (fork 3)", fork3.Title)
+
+	// Forking a fork shares the same counter rather than restarting at
+	// "Original (fork 2) (fork 1)". fork2 cut at ordinal 1, so it has
+	// one user turn we can re-fork from.
+	forkOfFork, err := sm.ForkSession(ctx, fork2.ID, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "Original (fork 4)", forkOfFork.Title)
+}
+
 // TestForkSession_OutOfRange covers the validation boundary: negative,
 // past-the-end, and equal-to-count ordinals must all fail with
 // ErrForkOutOfRange. The equal-to-count case is the regression guard

@@ -411,6 +411,20 @@ func (sm *SessionManager) ForkSession(ctx context.Context, sessionID string, use
 		return nil, err
 	}
 
+	// Override the title with a sibling-aware one so that forking the
+	// same parent from several cut points yields (fork 1), (fork 2), …
+	// rather than three copies of (fork 1). Safe under sm.mux: no other
+	// fork can land between this read and the AddSession below.
+	siblings, err := sm.sessionStore.GetSessions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	siblingTitles := make([]string, 0, len(siblings))
+	for _, s := range siblings {
+		siblingTitles = append(siblingTitles, s.Title)
+	}
+	forked.Title = session.NextForkTitle(parent.Title, siblingTitles)
+
 	if err := sm.sessionStore.AddSession(ctx, forked); err != nil {
 		return nil, err
 	}

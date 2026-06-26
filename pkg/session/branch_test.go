@@ -144,6 +144,64 @@ func TestGenerateForkTitle(t *testing.T) {
 	}
 }
 
+func TestNextForkTitle(t *testing.T) {
+	tests := []struct {
+		name        string
+		parentTitle string
+		siblings    []string
+		expected    string
+	}{
+		{
+			name:        "empty parent title returns empty",
+			parentTitle: "",
+			siblings:    []string{"Other"},
+			expected:    "",
+		},
+		{
+			name:        "no siblings: starts at fork 1",
+			parentTitle: "My Session",
+			siblings:    []string{},
+			expected:    "My Session (fork 1)",
+		},
+		{
+			// Repeated forks of the same parent from different cut points
+			// must not collide on (fork 1) -- the regression this helper fixes.
+			name:        "ignores unrelated siblings, picks next free N",
+			parentTitle: "My Session",
+			siblings:    []string{"My Session (fork 1)", "Unrelated", "My Session (fork 2)"},
+			expected:    "My Session (fork 3)",
+		},
+		{
+			// Forking a fork must continue the same counter, not start
+			// a new "<base> (fork 1) (fork 1)" chain.
+			name:        "parent already has (fork N), counter rooted on base title",
+			parentTitle: "My Session (fork 2)",
+			siblings:    []string{"My Session (fork 1)", "My Session (fork 2)"},
+			expected:    "My Session (fork 3)",
+		},
+		{
+			name:        "gaps in fork numbering are tolerated, picks max+1",
+			parentTitle: "My Session",
+			siblings:    []string{"My Session (fork 1)", "My Session (fork 5)"},
+			expected:    "My Session (fork 6)",
+		},
+		{
+			// A user-chosen title with "(fork N)" in the middle must not
+			// be mistaken for a sibling under a different base.
+			name:        "mid-title (fork N) is not a sibling",
+			parentTitle: "Q1 Analysis",
+			siblings:    []string{"Q1 (fork 2) Analysis"},
+			expected:    "Q1 Analysis (fork 1)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, NextForkTitle(tt.parentTitle, tt.siblings))
+		})
+	}
+}
+
 func TestCloneSessionItem(t *testing.T) {
 	t.Run("empty item returns error", func(t *testing.T) {
 		_, err := cloneSessionItem(Item{})
